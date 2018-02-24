@@ -80,7 +80,6 @@ _INTENT_CLOSE_BLINDERS	= 'hermes/intent/Psychokiller1888:closeBlinders'
 
 _ready = False
 _thread = None
-_closingThreads = {}
 
 def onConnect(client, userdata, flags, rc):
 	_mqttClient.subscribe(_INTENT_OPEN_WINDOWS)
