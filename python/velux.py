@@ -69,18 +69,14 @@ _COMMANDS = {
 	#'selectBedroomWindows': 	['1.25', 3, '0.25', 5, 1, 1, 5, 5, 1],
 	#'selectBathroomWindows': 	['1.25', 3, '0.25', 5, 5, 5, 1],
 	#'selectRoomWindows': 		['1.25', 3, '0.25', 5, 5, 1, 5, 5, 1],
-	#'selectBedroomBlinders': 	['1.25', 3, '0.25', 5, 1, 5, 1, 5, 5, 1],
+	#'selectBedroomBlinders': 	['1.25', 3, '0.25', 5, 1, 5, 1, 5, 5, 1]
 }
 
-#_INTENT_OPEN_WINDOWS	= 'hermes/intent/Psychokiller1888:openVelux'
-#_INTENT_CLOSE_WINDOWS	= 'hermes/intent/Psychokiller1888:closeVelux'
-#_INTENT_OPEN_BLINDERS	= 'hermes/intent/Psychokiller1888:openBlinders'
-#_INTENT_CLOSE_BLINDERS	= 'hermes/intent/Psychokiller1888:closeBlinders'
+_INTENT_OPEN_WINDOWS	= 'hermes/intent/Psychokiller1888:openVelux'
+_INTENT_CLOSE_WINDOWS	= 'hermes/intent/Psychokiller1888:closeVelux'
+_INTENT_OPEN_BLINDERS	= 'hermes/intent/Psychokiller1888:openBlinders'
+_INTENT_CLOSE_BLINDERS	= 'hermes/intent/Psychokiller1888:closeBlinders'
 
-_INTENT_OPEN_WINDOWS	= 'projectAlice/intent/velux/open'
-_INTENT_CLOSE_WINDOWS	= 'projectAlice/intent/velux/close'
-_INTENT_OPEN_BLINDERS	= 'projectAlice/intent/velux/openBlinders'
-_INTENT_CLOSE_BLINDERS	= 'projectAlice/intent/velux/closeBlinders'
 
 _ready = False
 _thread = None
