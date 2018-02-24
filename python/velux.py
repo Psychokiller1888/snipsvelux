@@ -181,11 +181,7 @@ def stop():
 
 def fullOpen(what='windows', which='all', duration=0):
 	global _COMMANDS
-	str = 'select{}{}'.format(which.title(), what.title())
-	if str not in _COMMANDS:
-		str = 'selectAllWindows'
-
-	executeCommand(_COMMANDS[str])
+	selectProduct(what, which)
 	executeCommand(_COMMANDS['fullOpen'])
 	if what == 'windows' and duration > 0:
 		thread = threading.Timer(duration, fullClose, ['windows', 'all'])
@@ -193,11 +189,15 @@ def fullOpen(what='windows', which='all', duration=0):
 
 def fullClose(what='windows', which='all'):
 	global _COMMANDS
+	selectProduct(what, which)
+	executeCommand(_COMMANDS['fullClose'])
+
+def selectProduct(what, which):
+	global _COMMANDS
 	str = 'select{}{}'.format(which.title(), what.title())
 	if str not in _COMMANDS:
 		str = 'selectAllWindows'
 	executeCommand(_COMMANDS[str])
-	executeCommand(_COMMANDS['fullClose'])
 
 
 def openToCertainPercentage(percent, windows='all', duration=0):
