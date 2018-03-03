@@ -69,22 +69,17 @@ _COMMANDS = {
 	#'selectBedroomWindows': 	['1.25', 3, '0.25', 5, 1, 1, 5, 5, 1],
 	#'selectBathroomWindows': 	['1.25', 3, '0.25', 5, 5, 5, 1],
 	#'selectRoomWindows': 		['1.25', 3, '0.25', 5, 5, 1, 5, 5, 1],
-	#'selectBedroomBlinders': 	['1.25', 3, '0.25', 5, 1, 5, 1, 5, 5, 1],
+	#'selectBedroomBlinders': 	['1.25', 3, '0.25', 5, 1, 5, 1, 5, 5, 1]
 }
 
-#_INTENT_OPEN_WINDOWS	= 'hermes/intent/Psychokiller1888:openVelux'
-#_INTENT_CLOSE_WINDOWS	= 'hermes/intent/Psychokiller1888:closeVelux'
-#_INTENT_OPEN_BLINDERS	= 'hermes/intent/Psychokiller1888:openBlinders'
-#_INTENT_CLOSE_BLINDERS	= 'hermes/intent/Psychokiller1888:closeBlinders'
+_INTENT_OPEN_WINDOWS	= 'hermes/intent/Psychokiller1888:openVelux'
+_INTENT_CLOSE_WINDOWS	= 'hermes/intent/Psychokiller1888:closeVelux'
+_INTENT_OPEN_BLINDERS	= 'hermes/intent/Psychokiller1888:openBlinders'
+_INTENT_CLOSE_BLINDERS	= 'hermes/intent/Psychokiller1888:closeBlinders'
 
-_INTENT_OPEN_WINDOWS	= 'projectAlice/intent/velux/open'
-_INTENT_CLOSE_WINDOWS	= 'projectAlice/intent/velux/close'
-_INTENT_OPEN_BLINDERS	= 'projectAlice/intent/velux/openBlinders'
-_INTENT_CLOSE_BLINDERS	= 'projectAlice/intent/velux/closeBlinders'
 
 _ready = False
 _thread = None
-_closingThreads = {}
 
 def onConnect(client, userdata, flags, rc):
 	_mqttClient.subscribe(_INTENT_OPEN_WINDOWS)
@@ -177,11 +172,7 @@ def stop():
 
 def fullOpen(what='windows', which='all', duration=0):
 	global _COMMANDS
-	str = 'select{}{}'.format(which.title(), what.title())
-	if str not in _COMMANDS:
-		str = 'selectAllWindows'
-
-	executeCommand(_COMMANDS[str])
+	selectProduct(what, which)
 	executeCommand(_COMMANDS['fullOpen'])
 	if what == 'windows' and duration > 0:
 		thread = threading.Timer(duration, fullClose, ['windows', 'all'])
@@ -189,11 +180,15 @@ def fullOpen(what='windows', which='all', duration=0):
 
 def fullClose(what='windows', which='all'):
 	global _COMMANDS
+	selectProduct(what, which)
+	executeCommand(_COMMANDS['fullClose'])
+
+def selectProduct(what, which):
+	global _COMMANDS
 	str = 'select{}{}'.format(which.title(), what.title())
 	if str not in _COMMANDS:
 		str = 'selectAllWindows'
 	executeCommand(_COMMANDS[str])
-	executeCommand(_COMMANDS['fullClose'])
 
 
 def openToCertainPercentage(percent, windows='all', duration=0):
