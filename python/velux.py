@@ -95,19 +95,10 @@ def onConnect(client, userdata, flags, rc):
 def onMessage(client, userdata, message):
 	global _ready
 
-	payload = None
-	if hasattr(message, 'payload') and message.payload != '':
-		payload = json.loads(message.payload)
-
-	if not _ready or payload is None:
+	if not _ready:
 		return
 
-	payload = None
-	if hasattr(message, 'payload') and message.payload != '':
-		payload = json.loads(message.payload)
-
-	if not _ready or payload is None:
-		return
+	payload = json.loads(message.payload)
 
 	if message.topic == _INTENT_OPEN_WINDOWS:
 		duration = 0
