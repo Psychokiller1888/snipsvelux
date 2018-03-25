@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/Psychokiller1888/snipsvelux.svg?branch=master)](https://travis-ci.org/Psychokiller1888/snipsvelux)
-
 # snipsvelux
 Code used for the community guide about hacking a Velux remote controller to enable voice control
 
