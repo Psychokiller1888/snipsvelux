@@ -1,6 +1,6 @@
 # snipsvelux
 
-This repository contains the code used to control your Velux products with your voice using Snips.
+This repository contains the code used to control your Velux products with your voice using [Snips](https://snips.ai).
 
 The [wiki](https://github.com/Psychokiller1888/snipsvelux/wiki) contains all steps to fully reproduce the hack and give you the freedom of never searching for you Velux remote anymore!
 
