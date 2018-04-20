@@ -81,11 +81,13 @@ _INTENT_CLOSE_BLINDERS	= 'hermes/intent/Psychokiller1888:closeBlinders'
 _ready = False
 _thread = None
 
+
 def onConnect(client, userdata, flags, rc):
 	_mqttClient.subscribe(_INTENT_OPEN_WINDOWS)
 	_mqttClient.subscribe(_INTENT_CLOSE_WINDOWS)
 	_mqttClient.subscribe(_INTENT_OPEN_BLINDERS)
 	_mqttClient.subscribe(_INTENT_CLOSE_BLINDERS)
+
 
 def onMessage(client, userdata, message):
 	global _ready
@@ -94,6 +96,10 @@ def onMessage(client, userdata, message):
 		return
 
 	payload = json.loads(message.payload)
+
+	place = 'all'
+	if 'place' in payload and payload['place'] != 'all':
+		place = payload['place']
 
 	if message.topic == _INTENT_OPEN_WINDOWS:
 		duration = 0
@@ -105,27 +111,17 @@ def onMessage(client, userdata, message):
 			percentage = payload['percentage'].replace('%', '')
 			percentage = int(math.ceil(int(percentage) / 10.0)) * 10
 
-		place = 'all'
-		if 'place' in payload and payload['place'] != 'all':
-			place = payload['place']
-
-		if place == 'second room':
-			place = 'room'
-
 		if percentage != 'full':
 			openToCertainPercentage(percent=percentage, windows=place, duration=duration)
 		else:
 			fullOpen(what='windows', which=place, duration=duration)
 
 		print('Opening windows (Payload was {})'.format(payload))
+
 	elif message.topic == _INTENT_CLOSE_WINDOWS:
 		when = 0
 		if 'when' in payload and payload['when'] != 0:
 			when = payload['when']['duration']
-
-		place = 'all'
-		if 'place' in payload and payload['place'] != 'all':
-			place = payload['place']
 
 		if when == 0:
 			fullClose(what='windows', which=place)
@@ -133,15 +129,12 @@ def onMessage(client, userdata, message):
 			thread = threading.Timer(when, fullClose, ['windows', place])
 			thread.start()
 		print('Closing windows (Payload was {})'.format(payload))
+
 	elif message.topic == _INTENT_OPEN_BLINDERS:
 		percentage = 'full'
 		if 'percentage' in payload and payload['percentage'] != 'full':
 			percentage = payload['percentage'].replace('%', '')
 			percentage = int(math.ceil(int(percentage) / 10.0)) * 10
-
-		place = 'all'
-		if 'place' in payload and payload['place'] != 'all':
-			place = payload['place']
 
 		if percentage != 'full':
 			openBlindersToCertainPercentage(percent=percentage, blinders=place)
@@ -149,26 +142,24 @@ def onMessage(client, userdata, message):
 			fullOpen(what='blinders', which=place)
 
 		print('Opening blinders (Payload was {})'.format(payload))
+
 	elif message.topic == _INTENT_CLOSE_BLINDERS:
 		percentage = 'full'
 		if 'percentage' in payload and payload['percentage'] != 'full':
 			percentage = payload['percentage'].replace('%', '')
 			percentage = int(math.ceil(int(percentage) / 10.0)) * 10
 
-		place = 'all'
-		if 'place' in payload and payload['place'] != 'all':
-			place = payload['place']
-
 		if percentage != 'full':
 			openBlindersToCertainPercentage(percent=percentage, blinders=place)
 		else:
 			fullClose(what='blinders', which=place)
-
 			print('Closing blinders (Payload was {})'.format(payload))
+
 
 def stop():
 	global _RUNNING
 	_RUNNING = False
+
 
 def fullOpen(what='windows', which='all', duration=0):
 	global _COMMANDS
@@ -178,10 +169,12 @@ def fullOpen(what='windows', which='all', duration=0):
 		thread = threading.Timer(duration, fullClose, ['windows', 'all'])
 		thread.start()
 
+
 def fullClose(what='windows', which='all'):
 	global _COMMANDS
 	selectProduct(what, which)
 	executeCommand(_COMMANDS['fullClose'])
+
 
 def selectProduct(what, which):
 	global _COMMANDS
@@ -226,6 +219,7 @@ def openToCertainPercentage(percent, windows='all', duration=0):
 		thread = threading.Timer(duration, fullClose, ['windows', windows])
 		thread.start()
 
+
 def openBlindersToCertainPercentage(percent, blinders='all'):
 	global _COMMANDS
 
@@ -257,6 +251,7 @@ def openBlindersToCertainPercentage(percent, blinders='all'):
 	executeCommand(_COMMANDS['select{}Blinders'.format(blinders.title())])
 	executeCommand(_COMMANDS['close'], clickTime=timer)
 
+
 def executeCommand(commandList, clickTime=0.2):
 	global _ready
 	_ready = False
@@ -276,6 +271,7 @@ def executeCommand(commandList, clickTime=0.2):
 		time.sleep(waitTime)
 
 	_ready = True
+
 
 def translateButton(buttonNumber):
 	if buttonNumber == 1:
@@ -298,16 +294,19 @@ def translateButton(buttonNumber):
 		print('Unknown button: ' + str(buttonNumber))
 		return -1
 
+
 def powerOn():
 	global _ready
 	_ready = False
 	gpio.output(_POWER_ON_PIN, gpio.HIGH)
 	threading.Timer(12, onRemoteStarted).start()
 
+
 def onRemoteStarted():
 	global _ready
 	_ready = True
 	print('Module ready')
+
 
 def setupGpio():
 	gpio.setmode(gpio.BOARD)
@@ -322,6 +321,7 @@ def setupGpio():
 	gpio.setup(_RESET_PIN, gpio.OUT, gpio.PUD_OFF, gpio.LOW)
 	gpio.setup(_POWER_ON_PIN, gpio.OUT, gpio.PUD_OFF, gpio.LOW)
 
+
 def reset():
 	global _ready
 	_ready = False
@@ -332,6 +332,7 @@ def reset():
 	time.sleep(6)
 	gpio.output(_RESET_PIN, gpio.LOW)
 	_ready = True
+
 
 if __name__ == '__main__':
 	print('Powering Velux remote, please wait until ready')
@@ -369,4 +370,5 @@ if __name__ == '__main__':
 	finally:
 		if _thread is not None:
 			_thread.cancel()
+		_mqttClient.loop_stop()
 		gpio.cleanup()
