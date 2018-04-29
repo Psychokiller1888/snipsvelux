@@ -1,0 +1,13 @@
+[Unit]
+Description=Snips Velux
+Wants=network-online.target
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python main.py 1
+WorkingDirectory=/home/pi/snipsvelux
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

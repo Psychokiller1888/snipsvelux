@@ -9,6 +9,8 @@ import json
 import math
 import paho.mqtt.client as mqtt
 import RPi.GPIO as gpio
+from States import State
+import sys
 import time
 import threading
 
@@ -44,7 +46,7 @@ import threading
 # On start wait 12 seconds for booting
 
 _RUNNING 		= True
-
+_AS_SERVICE 	= False
 
 _MENU_PIN		= 33
 _UP_ARROW_PIN	= 32
@@ -60,6 +62,7 @@ _POWER_ON_PIN 	= 26
 # Defines button press per actions
 # Insert a string to add a pause after button click exemple: ['1', 3, 1] Would wait 1 seconds after each button click. Default wait time is 0.5
 _COMMANDS = {
+	'clearScreen': 				[8],
 	'open': 					[7],
 	'close': 					[9],
 	'fullOpen': 				[7, 7],
@@ -77,10 +80,9 @@ _INTENT_CLOSE_WINDOWS	= 'hermes/intent/Psychokiller1888:closeVelux'
 _INTENT_OPEN_BLINDERS	= 'hermes/intent/Psychokiller1888:openBlinders'
 _INTENT_CLOSE_BLINDERS	= 'hermes/intent/Psychokiller1888:closeBlinders'
 
-
-_ready = False
-_thread = None
-
+_thread 	= None
+_state 		= State.BOOTING
+_busyThread = None
 
 def onConnect(client, userdata, flags, rc):
 	_mqttClient.subscribe(_INTENT_OPEN_WINDOWS)
@@ -90,9 +92,9 @@ def onConnect(client, userdata, flags, rc):
 
 
 def onMessage(client, userdata, message):
-	global _ready
+	global _state
 
-	if not _ready:
+	if _state is not State.READY:
 		return
 
 	payload = json.loads(message.payload)
@@ -163,6 +165,7 @@ def stop():
 
 def fullOpen(what='windows', which='all', duration=0):
 	global _COMMANDS
+	setBusy()
 	selectProduct(what, which)
 	executeCommand(_COMMANDS['fullOpen'])
 	if what == 'windows' and duration > 0:
@@ -172,6 +175,7 @@ def fullOpen(what='windows', which='all', duration=0):
 
 def fullClose(what='windows', which='all'):
 	global _COMMANDS
+	setBusy()
 	selectProduct(what, which)
 	executeCommand(_COMMANDS['fullClose'])
 
@@ -212,6 +216,7 @@ def openToCertainPercentage(percent, windows='all', duration=0):
 		fullOpen(what='windows', which=windows, duration=duration)
 		return
 
+	setBusy()
 	executeCommand(_COMMANDS['select{}Windows'.format(windows.title())])
 	executeCommand(_COMMANDS['open'], clickTime=timer)
 
@@ -248,14 +253,12 @@ def openBlindersToCertainPercentage(percent, blinders='all'):
 		fullOpen(what='blinders', which=blinders)
 		return
 
+	setBusy()
 	executeCommand(_COMMANDS['select{}Blinders'.format(blinders.title())])
 	executeCommand(_COMMANDS['close'], clickTime=timer)
 
 
 def executeCommand(commandList, clickTime=0.2):
-	global _ready
-	_ready = False
-
 	waitTime = 0.5
 	for cmd in commandList:
 		if isinstance(cmd, basestring):
@@ -269,8 +272,6 @@ def executeCommand(commandList, clickTime=0.2):
 		time.sleep(clickTime)
 		gpio.output(pin, gpio.LOW)
 		time.sleep(waitTime)
-
-	_ready = True
 
 
 def translateButton(buttonNumber):
@@ -295,16 +296,40 @@ def translateButton(buttonNumber):
 		return -1
 
 
+def setBusy():
+	global _busyThread, _state
+
+	_state = State.BUSY
+
+	if _busyThread is not None:
+		_busyThread.cancel()
+		_busyThread = None
+
+	_busyThread = threading.Timer(45, clearScreen)
+	_busyThread.start()
+
+
+def clearScreen():
+	global _busyThread
+	executeCommand(_COMMANDS['clearScreen'])
+	_busyThread = threading.Timer(10, stateToReady)
+	_busyThread.start()
+
+
+def stateToReady():
+	global _state, _busyThread
+	_busyThread = None
+	_state = State.READY
+
+
 def powerOn():
-	global _ready
-	_ready = False
 	gpio.output(_POWER_ON_PIN, gpio.HIGH)
 	threading.Timer(12, onRemoteStarted).start()
 
 
 def onRemoteStarted():
-	global _ready
-	_ready = True
+	global _state
+	_state = State.READY
 	print('Module ready')
 
 
@@ -323,19 +348,23 @@ def setupGpio():
 
 
 def reset():
-	global _ready
-	_ready = False
+	global _state
+	_state = State.BOOTING
 	gpio.output(_POWER_ON_PIN, gpio.LOW)
 	time.sleep(2)
 	gpio.output(_RESET_PIN, gpio.HIGH)
 	gpio.output(_POWER_ON_PIN, gpio.HIGH)
 	time.sleep(6)
 	gpio.output(_RESET_PIN, gpio.LOW)
-	_ready = True
+	_state = State.READY
 
 
 if __name__ == '__main__':
 	print('Powering Velux remote, please wait until ready')
+
+	if len(sys.argv) > 1:
+		_AS_SERVICE = True
+
 	setupGpio()
 	powerOn()
 	_mqttClient = mqtt.Client()
@@ -344,25 +373,29 @@ if __name__ == '__main__':
 	_mqttClient.connect('localhost', 1883)
 	_mqttClient.loop_start()
 	try:
-		while _RUNNING:
-			if _ready:
-				button = raw_input('Type a button number: ')
-				try:
-					button = int(button)
-				except ValueError:
-					if button == 'reset':
-						reset()
-						continue
-					else:
-						print('Please use numbers from 1 to 10 only (or `reset`)')
-						continue
+		if not _AS_SERVICE:
+			while _RUNNING:
+				if  _state is State.READY:
+					button = raw_input('Type a button number: ')
+					try:
+						button = int(button)
+					except ValueError:
+						if button == 'reset':
+							reset()
+							continue
+						else:
+							print('Please use numbers from 1 to 10 only (or `reset`)')
+							continue
 
-				pin = translateButton(button)
-				if pin != -1:
-					gpio.output(pin, gpio.HIGH)
-					time.sleep(0.25)
-					gpio.output(pin, gpio.LOW)
-					time.sleep(0.25)
+					pin = translateButton(button)
+					if pin != -1:
+						gpio.output(pin, gpio.HIGH)
+						time.sleep(0.25)
+						gpio.output(pin, gpio.LOW)
+						time.sleep(0.25)
+		else:
+			while _RUNNING:
+				time.sleep(0.1)
 
 		raise KeyboardInterrupt
 	except KeyboardInterrupt:
