@@ -5,6 +5,20 @@
 # If you find any bugs, please report on github
 # If reusing keep credits
 
+
+import logging
+
+logging.basicConfig(
+	format='%(asctime)s [%(threadName)s] - [%(levelname)s] - %(message)s',
+	level=logging.INFO,
+	filename='logs.log',
+	filemode='w'
+)
+
+_logger = logging.getLogger('SnipsVelux')
+_logger.addHandler(logging.StreamHandler())
+
+
 import json
 import math
 import paho.mqtt.client as mqtt
@@ -48,6 +62,7 @@ import threading
 _RUNNING 		= True
 _AS_SERVICE 	= False
 
+
 _MENU_PIN		= 33
 _UP_ARROW_PIN	= 32
 _BACK_PIN		= 31
@@ -80,9 +95,8 @@ _INTENT_CLOSE_WINDOWS	= 'hermes/intent/Psychokiller1888:closeVelux'
 _INTENT_OPEN_BLINDERS	= 'hermes/intent/Psychokiller1888:openBlinders'
 _INTENT_CLOSE_BLINDERS	= 'hermes/intent/Psychokiller1888:closeBlinders'
 
-_thread 	= None
-_state 		= State.BOOTING
-_busyThread = None
+_thread 				= None
+_state 					= State.BOOTING
 
 def onConnect(client, userdata, flags, rc):
 	_mqttClient.subscribe(_INTENT_OPEN_WINDOWS)
@@ -118,7 +132,7 @@ def onMessage(client, userdata, message):
 		else:
 			fullOpen(what='windows', which=place, duration=duration)
 
-		print('Opening windows (Payload was {})'.format(payload))
+		_logger.info('Opening windows (Payload was {})'.format(payload))
 
 	elif message.topic == _INTENT_CLOSE_WINDOWS:
 		when = 0
@@ -130,7 +144,8 @@ def onMessage(client, userdata, message):
 		else:
 			thread = threading.Timer(when, fullClose, ['windows', place])
 			thread.start()
-		print('Closing windows (Payload was {})'.format(payload))
+
+		_logger.info('Closing windows (Payload was {})'.format(payload))
 
 	elif message.topic == _INTENT_OPEN_BLINDERS:
 		percentage = 'full'
@@ -143,7 +158,7 @@ def onMessage(client, userdata, message):
 		else:
 			fullOpen(what='blinders', which=place)
 
-		print('Opening blinders (Payload was {})'.format(payload))
+		_logger.info('Opening blinders (Payload was {})'.format(payload))
 
 	elif message.topic == _INTENT_CLOSE_BLINDERS:
 		percentage = 'full'
@@ -155,7 +170,9 @@ def onMessage(client, userdata, message):
 			openBlindersToCertainPercentage(percent=percentage, blinders=place)
 		else:
 			fullClose(what='blinders', which=place)
-			print('Closing blinders (Payload was {})'.format(payload))
+			_logger.info('Closing blinders (Payload was {})'.format(payload))
+	else:
+		_logger.warning('Unsupported message')
 
 
 def stop():
@@ -167,7 +184,7 @@ def fullOpen(what='windows', which='all', duration=0):
 	global _COMMANDS
 	setBusy()
 	selectProduct(what, which)
-	executeCommand(_COMMANDS['fullOpen'])
+	executeCommand(_COMMANDS['fullOpen'], cleanScreen=True)
 	if what == 'windows' and duration > 0:
 		thread = threading.Timer(duration, fullClose, ['windows', 'all'])
 		thread.start()
@@ -177,7 +194,7 @@ def fullClose(what='windows', which='all'):
 	global _COMMANDS
 	setBusy()
 	selectProduct(what, which)
-	executeCommand(_COMMANDS['fullClose'])
+	executeCommand(_COMMANDS['fullClose'], cleanScreen=True)
 
 
 def selectProduct(what, which):
@@ -217,12 +234,12 @@ def openToCertainPercentage(percent, windows='all', duration=0):
 		return
 
 	setBusy()
-	executeCommand(_COMMANDS['select{}Windows'.format(windows.title())])
-	executeCommand(_COMMANDS['open'], clickTime=timer)
-
 	if duration > 0:
 		thread = threading.Timer(duration, fullClose, ['windows', windows])
 		thread.start()
+
+	executeCommand(_COMMANDS['select{}Windows'.format(windows.title())])
+	executeCommand(_COMMANDS['open'], clickTime=timer, cleanScreen=True)
 
 
 def openBlindersToCertainPercentage(percent, blinders='all'):
@@ -255,10 +272,10 @@ def openBlindersToCertainPercentage(percent, blinders='all'):
 
 	setBusy()
 	executeCommand(_COMMANDS['select{}Blinders'.format(blinders.title())])
-	executeCommand(_COMMANDS['close'], clickTime=timer)
+	executeCommand(_COMMANDS['close'], clickTime=timer, cleanScreen=True)
 
 
-def executeCommand(commandList, clickTime=0.2):
+def executeCommand(commandList, clickTime=0.2, cleanScreen=False):
 	waitTime = 0.5
 	for cmd in commandList:
 		if isinstance(cmd, basestring):
@@ -272,6 +289,10 @@ def executeCommand(commandList, clickTime=0.2):
 		time.sleep(clickTime)
 		gpio.output(pin, gpio.LOW)
 		time.sleep(waitTime)
+
+	if cleanScreen:
+		time.sleep(2)
+		reboot(State.READY)
 
 
 def translateButton(buttonNumber):
@@ -292,34 +313,13 @@ def translateButton(buttonNumber):
 	elif buttonNumber == 10:
 		return _RESET_PIN
 	else:
-		print('Unknown button: ' + str(buttonNumber))
+		_logger.warning('Unknown button: ' + str(buttonNumber))
 		return -1
 
 
 def setBusy():
-	global _busyThread, _state
-
+	global _state
 	_state = State.BUSY
-
-	if _busyThread is not None:
-		_busyThread.cancel()
-		_busyThread = None
-
-	_busyThread = threading.Timer(45, clearScreen)
-	_busyThread.start()
-
-
-def clearScreen():
-	global _busyThread
-	executeCommand(_COMMANDS['clearScreen'])
-	_busyThread = threading.Timer(10, stateToReady)
-	_busyThread.start()
-
-
-def stateToReady():
-	global _state, _busyThread
-	_busyThread = None
-	_state = State.READY
 
 
 def powerOn():
@@ -330,10 +330,11 @@ def powerOn():
 def onRemoteStarted():
 	global _state
 	_state = State.READY
-	print('Module ready')
+	_logger.info('Module ready')
 
 
 def setupGpio():
+	gpio.cleanup()
 	gpio.setmode(gpio.BOARD)
 	gpio.setwarnings(False)
 	gpio.setup(_MENU_PIN, gpio.OUT, gpio.PUD_OFF, gpio.LOW)
@@ -349,7 +350,7 @@ def setupGpio():
 
 def reset():
 	global _state
-	_state = State.BOOTING
+	_state = State.RESETTING
 	gpio.output(_POWER_ON_PIN, gpio.LOW)
 	time.sleep(2)
 	gpio.output(_RESET_PIN, gpio.HIGH)
@@ -359,8 +360,19 @@ def reset():
 	_state = State.READY
 
 
+def reboot(toState):
+	global _state
+	gpio.output(_POWER_ON_PIN, gpio.LOW)
+	_state = State.OFF
+	time.sleep(2)
+	gpio.output(_POWER_ON_PIN, gpio.HIGH)
+	_state = State.BOOTING
+	time.sleep(12)
+	_state = toState
+
+
 if __name__ == '__main__':
-	print('Powering Velux remote, please wait until ready')
+	_logger.info('Powering Velux remote, please wait until ready')
 
 	if len(sys.argv) > 1:
 		_AS_SERVICE = True
@@ -384,7 +396,7 @@ if __name__ == '__main__':
 							reset()
 							continue
 						else:
-							print('Please use numbers from 1 to 10 only (or `reset`)')
+							_logger.warning('Please use numbers from 1 to 10 only (or `reset`)')
 							continue
 
 					pin = translateButton(button)
@@ -401,6 +413,7 @@ if __name__ == '__main__':
 	except KeyboardInterrupt:
 		pass
 	finally:
+		_logger.info('Stopping Velux Snips module')
 		if _thread is not None:
 			_thread.cancel()
 		_mqttClient.loop_stop()
