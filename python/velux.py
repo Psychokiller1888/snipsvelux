@@ -95,8 +95,8 @@ _INTENT_CLOSE_WINDOWS	= 'hermes/intent/Psychokiller1888:closeVelux'
 _INTENT_OPEN_BLINDERS	= 'hermes/intent/Psychokiller1888:openBlinders'
 _INTENT_CLOSE_BLINDERS	= 'hermes/intent/Psychokiller1888:closeBlinders'
 
-_thread 				= None
 _state 					= State.BOOTING
+_commandPool 			= []
 
 def onConnect(client, userdata, flags, rc):
 	_mqttClient.subscribe(_INTENT_OPEN_WINDOWS)
@@ -106,12 +106,15 @@ def onConnect(client, userdata, flags, rc):
 
 
 def onMessage(client, userdata, message):
-	global _state
-
-	if _state is not State.READY:
-		return
+	global _state, _commandPool
 
 	payload = json.loads(message.payload)
+	sessionId = payload['sessionId']
+
+	if _state is not State.READY:
+		_commandPool.insert(message)
+		endTalk(sessionId=sessionId, text="I'm just a little busy but will do in a little while!")
+		return
 
 	place = 'all'
 	if 'place' in payload and payload['place'] != 'all':
@@ -173,6 +176,15 @@ def onMessage(client, userdata, message):
 			_logger.info('Closing blinders (Payload was {})'.format(payload))
 	else:
 		_logger.warning('Unsupported message')
+
+	endTalk(sessionId=sessionId, text='Ok, done!')
+
+
+def endTalk(sessionId, text=''):
+	_mqttClient.publish('hermes/dialogueManager/endSession', json.dumps({
+		'sessionId': sessionId,
+		'text': text
+	}))
 
 
 def stop():
@@ -323,6 +335,7 @@ def setBusy():
 
 
 def powerOn():
+	_logger.info('Starting remote controller')
 	gpio.output(_POWER_ON_PIN, gpio.HIGH)
 	threading.Timer(12, onRemoteStarted).start()
 
@@ -334,7 +347,6 @@ def onRemoteStarted():
 
 
 def setupGpio():
-	gpio.cleanup()
 	gpio.setmode(gpio.BOARD)
 	gpio.setwarnings(False)
 	gpio.setup(_MENU_PIN, gpio.OUT, gpio.PUD_OFF, gpio.LOW)
@@ -369,6 +381,13 @@ def reboot(toState):
 	_state = State.BOOTING
 	time.sleep(12)
 	_state = toState
+	executeCmdPool()
+
+
+def executeCmdPool():
+	global _commandPool
+	if len(_commandPool) > 0:
+		onMessage(None, None, _commandPool.pop(0))
 
 
 if __name__ == '__main__':
@@ -414,7 +433,5 @@ if __name__ == '__main__':
 		pass
 	finally:
 		_logger.info('Stopping Velux Snips module')
-		if _thread is not None:
-			_thread.cancel()
 		_mqttClient.loop_stop()
 		gpio.cleanup()
