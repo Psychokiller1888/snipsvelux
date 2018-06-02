@@ -11,5 +11,5 @@ class State(Enum):
 	BOOTING 		= 4
 	BUSY 			= 5
 	READY 			= 6
-	RESETING 		= 7
+	RESETTING 		= 7
 	OFF 			= 8
