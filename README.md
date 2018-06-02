@@ -3,7 +3,7 @@
 ### What's new?
 
 * 2018-06-02:
-    * The message won't be rejected anymore if the script is busy, but instead put in a pool to be executed later
+    * The messages won't be rejected anymore if the script is busy but instead put in a pool to be executed later
     * Added audio feedback
     * Cleaning up old things
 * 2018-05-24:
