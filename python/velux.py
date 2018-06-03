@@ -112,7 +112,7 @@ def onMessage(client, userdata, message):
 	sessionId = payload['sessionId']
 
 	if _state is not State.READY:
-		_commandPool.insert(message)
+		_commandPool.insert(len(_commandPool), message)
 		endTalk(sessionId=sessionId, text="I'm just a little busy but will do in a little while!")
 		return
 
