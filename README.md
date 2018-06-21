@@ -27,3 +27,7 @@ Do not hesitate to contribute!!
 
 [Youtube](https://www.youtube.com/watch?v=ukkOLqcm2CY£)
 [![Snips Velux](https://puu.sh/A6YQ6.png)](https://www.youtube.com/watch?v=ukkOLqcm2CY£)
+
+### New hack available
+
+I have created a pcb to make the hack look better, stronger, cleaner, faster... I will soon publish the guide to make the pcb. If you don't feel like creating your own PCB, printing, etching, soldering it, please contact me, we can find a solution. For more informations about this new solution [click here](https://laurentchervet.wordpress.com/2018/06/21/velux-pcb-hack-done/)
