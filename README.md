@@ -2,6 +2,9 @@
 
 ### What's new?
 
+* 2018-06-21
+    * Added chip support and configuration to replace reed relays
+    * Added PCB schematics
 * 2018-06-02:
     * The messages won't be rejected anymore if the script is busy but instead put in a pool to be executed later
     * Added audio feedback
