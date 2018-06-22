@@ -61,6 +61,7 @@ import threading
 
 _RUNNING 		= True
 _AS_SERVICE 	= False
+_REED_RELAY 	= False
 
 
 _MENU_PIN		= 33
@@ -77,11 +78,10 @@ _POWER_ON_PIN 	= 26
 # Defines button press per actions
 # Insert a string to add a pause after button click exemple: ['1', 3, 1] Would wait 1 seconds after each button click. Default wait time is 0.5
 _COMMANDS = {
-	'clearScreen': 				[8],
 	'open': 					[7],
 	'close': 					[9],
-	'fullOpen': 				[7, 7],
-	'fullClose': 				[9, 9],
+	'fullOpen': 				[7],
+	'fullClose': 				[9],
 	'selectAllWindows': 		['1.25', 3, '0.25', 1, 1,],
 	'selectAllBlinders': 		['1.25', 3, '0.25', 1, 5, 1]
 	#'selectBedroomWindows': 	['1.25', 3, '0.25', 5, 1, 1, 5, 5, 1],
@@ -110,6 +110,14 @@ def onMessage(client, userdata, message):
 
 	payload = json.loads(message.payload)
 	sessionId = payload['sessionId']
+
+	if _REED_RELAY and not gpio.input(_POWER_ON_PIN):
+		_state = State.BOOTING
+		gpio.output(_POWER_ON_PIN, gpio.HIGH)
+		_commandPool.insert(len(_commandPool), message)
+		t = threading.Timer(interval=15, function=executeAfterBoot, args=[])
+		t.start()
+		return
 
 	if _state is not State.READY:
 		_commandPool.insert(len(_commandPool), message)
@@ -190,6 +198,13 @@ def endTalk(sessionId, text=''):
 def stop():
 	global _RUNNING
 	_RUNNING = False
+
+
+def executeAfterBoot():
+	global _state, _commandPool
+	_state = State.READY
+	if len(_commandPool) > 0:
+		onMessage(None, None, _commandPool.pop(0))
 
 
 def fullOpen(what='windows', which='all', duration=0):
@@ -288,6 +303,8 @@ def openBlindersToCertainPercentage(percent, blinders='all'):
 
 
 def executeCommand(commandList, clickTime=0.2, cleanScreen=False):
+	global _state
+
 	waitTime = 0.5
 	for cmd in commandList:
 		if isinstance(cmd, basestring):
@@ -303,8 +320,15 @@ def executeCommand(commandList, clickTime=0.2, cleanScreen=False):
 		time.sleep(waitTime)
 
 	if cleanScreen:
-		time.sleep(2)
-		reboot(State.READY)
+		if _REED_RELAY:
+			_state = State.OFF
+			time.sleep(1)
+			gpio.output(_POWER_ON_PIN, gpio.LOW)
+			time.sleep(1)
+			executeCmdPool()
+		else:
+			time.sleep(1)
+			reboot(State.READY)
 
 
 def translateButton(buttonNumber):
@@ -335,9 +359,16 @@ def setBusy():
 
 
 def powerOn():
-	_logger.info('Starting remote controller')
-	gpio.output(_POWER_ON_PIN, gpio.HIGH)
-	threading.Timer(12, onRemoteStarted).start()
+	global _state
+
+	if _REED_RELAY:
+		_logger.info('Reed relay mode: Remote controller off as long as not needed')
+		_state = State.OFF
+		_logger.info('Module ready')
+	else:
+		_logger.info('MOSFET mode: Starting remote controller')
+		gpio.output(_POWER_ON_PIN, gpio.HIGH)
+		threading.Timer(15, onRemoteStarted).start()
 
 
 def onRemoteStarted():
@@ -393,8 +424,11 @@ def executeCmdPool():
 if __name__ == '__main__':
 	_logger.info('Powering Velux remote, please wait until ready')
 
-	if len(sys.argv) > 1:
+	if len(sys.argv) > 1 and sys.argv[1] == 1:
 		_AS_SERVICE = True
+
+	if len(sys.argv) > 2 and sys.argv[2] == 1:
+		_REED_RELAY = True
 
 	setupGpio()
 	powerOn()
