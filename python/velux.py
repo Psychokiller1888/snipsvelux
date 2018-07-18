@@ -367,6 +367,7 @@ def powerOn():
 		_logger.info('Module ready')
 	else:
 		_logger.info('MOSFET mode: Starting remote controller')
+		_state = State.BOOTING
 		gpio.output(_POWER_ON_PIN, gpio.HIGH)
 		threading.Timer(15, onRemoteStarted).start()
 
@@ -375,6 +376,7 @@ def onRemoteStarted():
 	global _state
 	_state = State.READY
 	_logger.info('Module ready')
+	executeCmdPool()
 
 
 def setupGpio():
